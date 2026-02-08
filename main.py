@@ -7,14 +7,17 @@ from assistant import *
 from pressure import *
 from sdcard import *
 
+# UART Communication to ESP32
+uart = machine.UART(0, baudrate=115200, tx=machine.Pin(0), rx=machine.Pin(1))
+
 #i2c configuration
-i2c=machine.I2C(0, scl=machine.Pin(1), sda =m achine.Pin(0))
+i2c=machine.I2C(0, scl=machine.Pin(1), sda =machine.Pin(0))
 devices = i2c.scan()
 if devices:
     print(devices)
     
 #Mq2 sensor
-sensor =MQ2(PinData=26)
+sensor =MQ2(pinData = 26)
 sensor.calibrate()
 
    #gyro
@@ -25,12 +28,14 @@ calibrate.pressure(bmp)
 
 #Sdcard
 spi=machine.SPI(1,sck=machine.Pin(14),mosi=machine.Pin(15),miso=machine.Pin(12))
-sd=SDcard(spi)
+sd=SDCard(spi)
 uos.mount(sd,'/sd')
 print("sd card connected")
-print(uso.listdir('/sd'))
+print(uos.listdir('/sd'))
 #creating file name
-myfile = card.newFile(uso.listdir('/sd'))
+#myfile = card.newFile(uso.listdir('/sd'))
+file_count = len(uos.listdir('/sd'))
+myfile = "/sd/data_" + str(file_count) + ".csv"
 with open (myfile,"w") as f:
     f.write("Time")
     f.write(",")
@@ -66,7 +71,7 @@ with open (myfile,"w") as f:
         smoke= sensor.readSmoke()
         LPG = sensor.readLPG()
         Methane = sensor.readMethane()
-        Hydrogen = readHydrogen()
+        Hydrogen = sensor.readHydrogen()
        
         ax=round(mpu6050.accel.x,2)
         ay=round(mpu6050.accel.y,2)
@@ -74,6 +79,26 @@ with open (myfile,"w") as f:
         gx=round(mpu6050.gyro.x,2)
         gy=round(mpu6050.gyro.y,2)
         gz=round(mpu6050.gyro.z,2)
+            # -------- SEND DATA TO ESP32 --------
+    send_data = "P:{}|T:{}|S:{}|L:{}|M:{}|H:{}|AX:{}|AY:{}|AZ:{}|GX:{}|GY:{}|GZ:{}\n".format(
+        pressure,
+        temperature,
+        smoke,
+        LPG,
+        Methane,
+        Hydrogen,
+        ax,
+        ay,
+        az,
+        gx,
+        gy,
+        gz
+    )
+
+    uart.write(send_data)
+
+    print("Sent to ESP32:", send_data)
+
         f.write(str(t))
         f.write(",")
         f.write(str(pressure))
@@ -102,4 +127,4 @@ with open (myfile,"w") as f:
         f.write(",")
         f.write("\n")
         f.flush()
-        print("our data saved:")
+        print("our data saved:",t,pressure,temperature,smoke,LPG,Methane,Hydrogen,ax,ay,az,gx,gy,gz)
