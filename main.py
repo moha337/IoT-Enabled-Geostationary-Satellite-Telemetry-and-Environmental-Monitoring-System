@@ -80,7 +80,7 @@ with open (myfile,"w") as f:
         gy=round(mpu6050.gyro.y,2)
         gz=round(mpu6050.gyro.z,2)
             # -------- SEND DATA TO ESP32 --------
-    send_data = "P:{}|T:{}|S:{}|L:{}|M:{}|H:{}|AX:{}|AY:{}|AZ:{}|GX:{}|GY:{}|GZ:{}\n".format(
+        send_data = "P:{}|T:{}|S:{}|L:{}|M:{}|H:{}|AX:{}|AY:{}|AZ:{}|GX:{}|GY:{}|GZ:{}\n".format(
         pressure,
         temperature,
         smoke,
@@ -92,12 +92,10 @@ with open (myfile,"w") as f:
         az,
         gx,
         gy,
-        gz
-    )
+        gz)
+        uart.write(send_data)
 
-    uart.write(send_data)
-
-    print("Sent to ESP32:", send_data)
+        print("Sent to ESP32:", send_data)
 
         f.write(str(t))
         f.write(",")
