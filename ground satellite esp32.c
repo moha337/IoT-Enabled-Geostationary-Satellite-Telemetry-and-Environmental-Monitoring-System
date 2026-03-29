@@ -1,10 +1,17 @@
 #include <WiFi.h>
 #include <WebServer.h>
-
+#include <HTTPClient.h>
 const char* ssid = "CANSAT_GROUND";
 const char* password = "12345678";
+// -------- ThingSpeak Settings --------
+String apiKey = "2EJP7XFZ8R9H49BD";
+const char* serverTS = "http://api.thingspeak.com/update";
+
+unsigned long lastUpload = 0;
 
 WebServer server(80);
+const char* internetSSID = "allah4G";
+const char* internetPASS = "rafiq2004";
 
 // -------- Sensor Variables --------
 float pressure = 0, temperature = 0;
@@ -31,6 +38,42 @@ void parseData(String data) {
          &gx, &gy, &gz);
 
   Serial.println("Data Parsed Successfully");
+}
+void uploadThingSpeak() {
+
+  if (millis() - lastUpload < 15000) return;
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("No Internet Connection – Upload Skipped");
+    return;
+  }
+
+  HTTPClient http;
+
+  String url = serverTS;
+  url += "?api_key=" + apiKey;
+  url += "&field1=" + String(temperature);
+  url += "&field2=" + String(pressure);
+  url += "&field3=" + String(smoke);
+  url += "&field4=" + String(lpg);
+  url += "&field5=" + String(methane);
+  url += "&field6=" + String(hydrogen);
+  url += "&field7=" + String(ax);   // Only AX
+  url += "&field8=" + String(gx);   // Only GX
+
+  http.begin(url);
+
+  int httpCode = http.GET();
+
+  if (httpCode > 0) {
+    Serial.println("ThingSpeak Upload Success");
+  } else {
+    Serial.println("ThingSpeak Upload Failed");
+  }
+
+  http.end();
+
+  lastUpload = millis();
 }
 
 // -------- Web Dashboard --------
@@ -103,15 +146,30 @@ void setup() {
   Serial2.begin(115200, SERIAL_8N1, 16, 17);
 
   WiFi.softAP(ssid, password);
+// Connect to Internet WiFi for ThingSpeak
+WiFi.begin(internetSSID, internetPASS);
+
+Serial.print("Connecting to Internet WiFi");
+
+while (WiFi.status() != WL_CONNECTED) {
+  delay(500);
+  Serial.print(".");
+}
+
+Serial.println("\nConnected to Internet!");
+Serial.println(WiFi.localIP());
 
   Serial.println("Ground Station Started");
   Serial.println(WiFi.softAPIP());
 
   server.on("/", dashboard);
   server.begin();
-}
 
-// -------- Loop --------
+  delay(3000);//----METHOD 2 MAIN PART---
+  //Serial2.println("START");
+  //Serial2.println("START COMMAND SENT TO PICO");
+}
+//loop
 void loop() {
 
   if (Serial2.available()) {
@@ -122,6 +180,8 @@ void loop() {
 
     parseData(received);
   }
+
+  uploadThingSpeak();   // <-- ADD THIS LINE
 
   server.handleClient();
 }
